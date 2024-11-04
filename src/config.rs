@@ -19,3 +19,6 @@ impl Config {
         true
     }
 }
+
+
+//待实现：Dolphin的属性、等级的modifiers

@@ -4,29 +4,31 @@ use core::slice::IterMut;
 use zkwasm_rest_abi::Player;
 use serde::Serialize;
 use crate::settlement::SettlementInfo;
+use crate::random::SeedInfo;
 
 #[derive(Debug, Serialize)]
 pub struct PlayerData {
-    pub counter: u64,
+    pub seed_info: Option<SeedInfo>,
+    pub final_random: Option<u64>,
 }
 
 impl Default for PlayerData {
     fn default() -> Self {
         Self {
-            counter: 0
+            seed_info: None,
+            final_random: None,
         }
     }
 }
 
 impl StorageData for PlayerData {
-    fn from_data(u64data: &mut IterMut<u64>) -> Self {
-        let counter = *u64data.next().unwrap();
+    fn from_data(_u64data: &mut IterMut<u64>) -> Self {
         PlayerData {
-            counter
+            seed_info: None,
+            final_random: None,
         }
     }
-    fn to_data(&self, data: &mut Vec<u64>) {
-        data.push(self.counter);
+    fn to_data(&self, _data: &mut Vec<u64>) {
     }
 }
 
@@ -78,11 +80,16 @@ pub struct Transaction {
     pub data: Vec<u64>,
 }
 
+// 简化命令常量
 const INSTALL_PLAYER: u64 = 1;
-const INC_COUNTER: u64 = 2;
+const GENERATE_RAND: u64 = 2;
+const REVEAL_RAND: u64 = 3;  // 合并了原来的 SUBMIT_SIGNATURE 和 REVEAL_SEED
 
-const ERROR_PLAYER_ALREADY_EXIST:u32 = 1;
-const ERROR_PLAYER_NOT_EXIST:u32 = 2;
+// 简化错误常量
+const ERROR_PLAYER_ALREADY_EXIST: u32 = 1;
+const ERROR_PLAYER_NOT_EXIST: u32 = 2;
+const ERROR_NO_COMMITMENT: u32 = 3;
+const ERROR_INVALID_SEED: u32 = 5;
 
 impl Transaction {
     pub fn decode_error(e: u32) -> &'static str {
@@ -113,47 +120,52 @@ impl Transaction {
         }
     }
 
-    pub fn inc_counter(&self, _pkey: &[u64; 4]) -> u32 {
-        //let player = HelloWorldPlayer::get(pkey);
-        todo!()
+    pub fn generate_rand(&self, pkey: &[u64; 4]) -> u32 {
+        let pid = HelloWorldPlayer::pkey_to_pid(pkey);
+        let mut player = match HelloWorldPlayer::get_from_pid(&pid) {
+            Some(p) => p,
+            None => return ERROR_PLAYER_NOT_EXIST,
+        };
+
+        // 生成新的 seed_info
+        player.data.seed_info = Some(SeedInfo::generate_seed_commitment());
+        player.data.final_random = None;
+        player.store();
+        0
     }
 
-    /*
-    pub fn withdraw(&self, pkey: &[u64; 4]) -> u32 {
-        let mut player = HelloWorldPlayer::get(pkey);
-        match player.as_mut() {
-            None => ERROR_PLAYER_NOT_EXIST,
-            Some(player) => {
-                if let Some(treasure) = player.data.local.0.last_mut() {
-                    let withdraw = WithdrawInfo::new(
-                        0,
-                        0,
-                        0,
-                        [*treasure as u64, 0, 0, 0],
-                        encode_address(&self.data),
-                    );
-                    SettleMentInfo::append_settlement(withdraw);
-                    *treasure = 0;
-                    //let t = player.data.local.0.last().unwrap();
-                    //zkwasm_rust_sdk::dbg!("treasure is {}", t);
-                    player.store();
-                } else {
-                    unreachable!();
-                }
+    pub fn reveal_rand(&self, pkey: &[u64; 4]) -> u32 {
+        let pid = HelloWorldPlayer::pkey_to_pid(pkey);
+        let mut player = match HelloWorldPlayer::get_from_pid(&pid) {
+            Some(p) => p,
+            None => return ERROR_PLAYER_NOT_EXIST,
+        };
+
+        let seed_info = match &player.data.seed_info {
+            Some(info) => info,
+            None => return ERROR_NO_COMMITMENT,
+        };
+
+        // 假设玩家签名在 self.data[0] 中
+        let player_signature = self.data[0];
+        
+        // 验证并生成随机数
+        match seed_info.reveal_verify_and_generate_random(player_signature) {
+            Ok(random) => {
+                player.data.final_random = Some(random);
+                player.store();
                 0
-            }
+            },
+            Err(_) => ERROR_INVALID_SEED,
         }
     }
-    */
-
 
     pub fn process(&self, pkey: &[u64; 4], _rand: &[u64; 4]) -> u32 {
         let b = match self.command {
             INSTALL_PLAYER => self.install_player(pkey),
-            INC_COUNTER => self.inc_counter(pkey),
-            _ => {
-                0
-            }
+            GENERATE_RAND => self.generate_rand(pkey),
+            REVEAL_RAND => self.reveal_rand(pkey),
+            _ => 0
         };
         let kvpair = unsafe { &mut MERKLE_MAP.merkle.root };
         zkwasm_rust_sdk::dbg!("root after process {:?}\n", kvpair);

@@ -18,8 +18,9 @@ protocol = []
 primitive-types = {version="0.12.1", default-features = false}
 lazy_static = "1.4.0"
 zkwasm-rust-sdk = { git = "https://github.com/DelphinusLab/zkWasm-rust.git", default-features = true }
-wasm-bindgen = "0.2.91"
+wasm-bindgen = { version = "0.2.91", features = ["serde-serialize"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10.8"
 zkwasm-rest-abi = { git = "https://github.com/DelphinusLab/zkwasm-typescript-mini-server" }
+web-sys = { version = "0.3", features = ["console"] }
