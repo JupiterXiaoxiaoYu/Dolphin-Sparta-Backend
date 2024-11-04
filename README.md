@@ -1,7 +1,5 @@
 # Dolphin-Sparta-Backend
 
-# Dolphin-Sparta-Backend 项目结构
-
 ## src/ - 后端源代码
 - `lib.rs` - 主入口文件
 - `config.rs` - 配置文件，包含版本信息和游戏参数（modifiers尚未实现：有问题）
