@@ -49,6 +49,22 @@ pub struct Dolphin {
     collected_coins: u64,
 }
 
+impl Default for Dolphin {
+    fn default() -> Self {
+        Dolphin {
+            id: 0,
+            name: DolphinName::DolphinWarrior,
+            level: 1,
+            life_stage: LifeStage::Baby,
+            join_time: 0,
+            health: 100,
+            satiety: 100,
+            generated_coins: 0,
+            collected_coins: 0,
+        }
+    }
+}
+
 impl StorageData for Dolphin {
     fn from_data(u64data: &mut IterMut<u64>) -> Self {
         Dolphin {
@@ -77,7 +93,7 @@ impl StorageData for Dolphin {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct PlayerData {
     pid: [u64; 2],
     coins_balance: u64,
@@ -85,6 +101,19 @@ pub struct PlayerData {
     medicine_number: u64,
     population_number: u64,
     dolphins: Vec<Dolphin>,
+}
+
+impl Default for PlayerData {
+    fn default() -> Self {
+        PlayerData {
+            pid: [0, 0],
+            coins_balance: 1200,    // 修改默认值
+            food_number: 10,        // 修改默认值
+            medicine_number: 2,     // 修改默认值
+            population_number: 3,   // 修改默认值
+            dolphins: Vec::new(),
+        }
+    }
 }
 
 impl StorageData for PlayerData {
@@ -192,6 +221,7 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64) -> R
                 player.population_number += 1;
             }
         };
+        zkwasm_rust_sdk::dbg!("player state update {:?}", command);
         Ok(())
     })
 }

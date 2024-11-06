@@ -1,8 +1,14 @@
 import { query, ZKWasmAppRpc, LeHexBN } from "zkwasm-ts-server";
 
 const CMD_INSTALL_PLAYER = 1n;
-const CMD_GENERATE_RAND = 2n;
-const CMD_REVEAL_RAND = 3n;
+
+const CMD_BUY_DOLPHIN = 16n;
+const CMD_BUY_FOOD = 17n;
+const CMD_BUY_MEDICINE = 18n;
+const CMD_FEED_DOLPHIN = 19n;
+const CMD_HEAL_DOLPHIN = 20n;
+const CMD_ATTACK_EVIL_WHALE = 21n;
+const CMD_BUY_POPULATION = 22n;
 
 function createCommand(command: bigint) {
     return command << 32n;
@@ -35,59 +41,52 @@ export class Player {
         }
     }
 
-    async generateRand() {
+    async sendGameCommand(command: bigint, dolphinId: number = 0) {
         let accountInfo = new LeHexBN(query(this.processingKey).pkx).toU64Array();
         try {
             let finished = await this.rpc.sendTransaction(
-                new BigUint64Array([createCommand(CMD_GENERATE_RAND), accountInfo[1], accountInfo[2], 0n]),
+                new BigUint64Array([
+                    createCommand(command),
+                    accountInfo[1],
+                    accountInfo[2],
+                    BigInt(dolphinId)
+                ]),
                 this.processingKey
             );
-            console.log("Random commitment generated at:", finished);
-            return this.getState(); // 返回包含 commitment 的状态
+            console.log(`Game command ${command} executed at:`, finished);
+            return this.getState();
         } catch(e) {
-            console.log("Generate random error:", e);
+            console.log("Game command error:", e);
+            throw e;
         }
     }
 
-    async revealRand(playerSignature: bigint) {
-        let accountInfo = new LeHexBN(query(this.processingKey).pkx).toU64Array();
-        try {
-            let finished = await this.rpc.sendTransaction(
-                new BigUint64Array([createCommand(CMD_REVEAL_RAND), accountInfo[1], accountInfo[2], playerSignature]),
-                this.processingKey
-            );
-            console.log("Random revealed at:", finished);
-            return this.getState(); // 返回包含最终随机数的状态
-        } catch(e) {
-            console.log("Reveal random error:", e);
-        }
+    async buyDolphin() {
+        return this.sendGameCommand(CMD_BUY_DOLPHIN);
     }
 
-    async generatePlayerSignature(commitment: [bigint, bigint]): Promise<bigint> {
-        // 简单的签名实现：将commitment的两个值异或后与玩家的私钥异或
-        const [c0, c1] = commitment;
-        const commitmentHash = c0 ^ c1;
-        return commitmentHash ^ BigInt(this.processingKey);
+    async buyFood() {
+        return this.sendGameCommand(CMD_BUY_FOOD);
     }
 
-    async requestRandomWithSignature() {
-        // 1. 生成随机数承诺
-        const state = await this.generateRand();
-        if (!state?.seed_info?.commitment) {
-            throw new Error("Failed to get commitment");
-        }
+    async buyMedicine() {
+        return this.sendGameCommand(CMD_BUY_MEDICINE);
+    }
 
-        // 2. 获取commitment并转换为bigint数组
-        const commitment: [bigint, bigint] = [
-            BigInt(state.seed_info.commitment[0]),
-            BigInt(state.seed_info.commitment[1])
-        ];
+    async feedDolphin(dolphinId: number) {
+        return this.sendGameCommand(CMD_FEED_DOLPHIN, dolphinId);
+    }
 
-        // 3. 生成签名
-        const signature = await this.generatePlayerSignature(commitment);
+    async healDolphin(dolphinId: number) {
+        return this.sendGameCommand(CMD_HEAL_DOLPHIN, dolphinId);
+    }
 
-        // 4. 使用签名揭示随机数
-        return this.revealRand(signature);
+    async attackEvilWhale() {
+        return this.sendGameCommand(CMD_ATTACK_EVIL_WHALE);
+    }
+
+    async buyPopulation() {
+        return this.sendGameCommand(CMD_BUY_POPULATION);
     }
 }
 

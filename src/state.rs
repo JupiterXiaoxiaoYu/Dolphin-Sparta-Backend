@@ -53,8 +53,6 @@ pub struct Transaction {
 
 // 简化命令常量
 const INSTALL_PLAYER: u64 = 1;
-const GENERATE_RAND: u64 = 2;
-const REVEAL_RAND: u64 = 3; // 合并了原来的 SUBMIT_SIGNATURE 和 REVEAL_SEED
 
 // 简化错误常量
 const ERROR_PLAYER_ALREADY_EXIST: u32 = 1;
