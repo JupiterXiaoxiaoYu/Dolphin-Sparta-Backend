@@ -1,45 +1,17 @@
-use crate::StorageData;
+use crate::gameplay::PlayerData;
 use crate::MERKLE_MAP;
-use core::slice::IterMut;
 use zkwasm_rest_abi::Player;
 use serde::Serialize;
 use crate::settlement::SettlementInfo;
-use crate::random::SeedInfo;
 
-#[derive(Debug, Serialize)]
-pub struct PlayerData {
-    pub seed_info: Option<SeedInfo>,
-    pub final_random: Option<u64>,
-}
-
-impl Default for PlayerData {
-    fn default() -> Self {
-        Self {
-            seed_info: None,
-            final_random: None,
-        }
-    }
-}
-
-impl StorageData for PlayerData {
-    fn from_data(_u64data: &mut IterMut<u64>) -> Self {
-        PlayerData {
-            seed_info: None,
-            final_random: None,
-        }
-    }
-    fn to_data(&self, _data: &mut Vec<u64>) {
-    }
-}
-
-pub type HelloWorldPlayer = Player<PlayerData>;
+pub type DolphinPlayer = Player<PlayerData>;
 
 #[derive (Serialize)]
 pub struct State {}
 
 impl State {
     pub fn get_state(pkey: Vec<u64>) -> String {
-        let player = HelloWorldPlayer::get_from_pid(&HelloWorldPlayer::pkey_to_pid(&pkey.try_into().unwrap()));
+        let player = DolphinPlayer::get_from_pid(&DolphinPlayer::pkey_to_pid(&pkey.try_into().unwrap()));
         serde_json::to_string(&player).unwrap()
     }
 
@@ -108,21 +80,22 @@ impl Transaction {
         }
     }
     pub fn install_player(&self, pkey: &[u64; 4]) -> u32 {
-        let pid = HelloWorldPlayer::pkey_to_pid(pkey);
-        let player = HelloWorldPlayer::get_from_pid(&pid);
+        let pid = DolphinPlayer::pkey_to_pid(pkey);
+        let player = DolphinPlayer::get_from_pid(&pid);
         match player {
             Some(_) => ERROR_PLAYER_ALREADY_EXIST,
             None => {
-                let player = HelloWorldPlayer::new_from_pid(pid);
+                let player = DolphinPlayer::new_from_pid(pid);
                 player.store();
                 0
             }
         }
     }
 
+    /*
     pub fn generate_rand(&self, pkey: &[u64; 4]) -> u32 {
-        let pid = HelloWorldPlayer::pkey_to_pid(pkey);
-        let mut player = match HelloWorldPlayer::get_from_pid(&pid) {
+        let pid = DolphinPlayer::pkey_to_pid(pkey);
+        let mut player = match DolphinPlayer::get_from_pid(&pid) {
             Some(p) => p,
             None => return ERROR_PLAYER_NOT_EXIST,
         };
@@ -135,8 +108,8 @@ impl Transaction {
     }
 
     pub fn reveal_rand(&self, pkey: &[u64; 4]) -> u32 {
-        let pid = HelloWorldPlayer::pkey_to_pid(pkey);
-        let mut player = match HelloWorldPlayer::get_from_pid(&pid) {
+        let pid = DolphinPlayer::pkey_to_pid(pkey);
+        let mut player = match DolphinPlayer::get_from_pid(&pid) {
             Some(p) => p,
             None => return ERROR_PLAYER_NOT_EXIST,
         };
@@ -148,7 +121,7 @@ impl Transaction {
 
         // 假设玩家签名在 self.data[0] 中
         let player_signature = self.data[0];
-        
+
         // 验证并生成随机数
         match seed_info.reveal_verify_and_generate_random(player_signature) {
             Ok(random) => {
@@ -160,11 +133,14 @@ impl Transaction {
         }
     }
 
+    */
     pub fn process(&self, pkey: &[u64; 4], _rand: &[u64; 4]) -> u32 {
         let b = match self.command {
             INSTALL_PLAYER => self.install_player(pkey),
+            /*
             GENERATE_RAND => self.generate_rand(pkey),
             REVEAL_RAND => self.reveal_rand(pkey),
+            */
             _ => 0
         };
         let kvpair = unsafe { &mut MERKLE_MAP.merkle.root };

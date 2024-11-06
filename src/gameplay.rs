@@ -1,10 +1,12 @@
+use std::slice::IterMut;
+use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
-use wasm_bindgen::prelude::*;
-use web_sys::console;
-use zkwasm_rust_sdk::{require, wasm_dbg, wasm_input};
+use zkwasm_rest_abi::StorageData;
+//use zkwasm_rust_sdk::{require, wasm_dbg, wasm_input};
 
 //基础玩法，没有实现抽卡(随机数）、阶梯化价格（modifier）、成长（时间序列）、收货金币（时间序列）
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, TryFromPrimitive, Copy, Clone)]
+#[repr(u32)]
 enum Command {
     BuyDolphin = 0,
     BuyFood = 1,
@@ -15,28 +17,16 @@ enum Command {
     BuyPopulationNumber = 6,
 }
 
-impl Command {
-    fn from_u8(value: u8) -> Option<Command> {
-        match value {
-            0 => Some(Command::BuyDolphin),
-            1 => Some(Command::BuyFood),
-            2 => Some(Command::BuyMedicine),
-            3 => Some(Command::FeedDolphin),
-            4 => Some(Command::HealDolphin),
-            5 => Some(Command::AttackEvilWhale),
-            6 => Some(Command::BuyPopulationNumber),
-            _ => None,
-        }
-    }
-}
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, TryFromPrimitive, Copy, Clone)]
+#[repr(u32)]
 enum LifeStage {
     Baby = 0,
     Adult = 1
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, TryFromPrimitive, Copy, Clone)]
+#[repr(u32)]
 enum DolphinName {
     DolphinArcher = 0,
     DolphinKnight = 1,
@@ -48,7 +38,7 @@ enum DolphinName {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-struct Dolphin {
+pub struct Dolphin {
     id: u64,
     name: DolphinName,
     level: u64,
@@ -60,9 +50,38 @@ struct Dolphin {
     collected_coins: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-struct Player {
-    pkey: [u64; 4],
+
+impl StorageData for Dolphin {
+    fn from_data(u64data: &mut IterMut<u64>) -> Self {
+        Dolphin {
+           id: *u64data.next().unwrap(),
+           name: DolphinName::try_from(*u64data.next().unwrap() as u32).unwrap(),
+           level: *u64data.next().unwrap(),
+           life_stage: LifeStage::try_from(*u64data.next().unwrap() as u32).unwrap(),
+           join_time: *u64data.next().unwrap(),
+           health: *u64data.next().unwrap(),
+           satiety: *u64data.next().unwrap(),
+           generated_coins:*u64data.next().unwrap(),
+           collected_coins: *u64data.next().unwrap(),
+        }
+    }
+
+    fn to_data(&self, data: &mut Vec<u64>) {
+        data.push(self.id);
+        data.push(self.name as u64);
+        data.push(self.level);
+        data.push(self.life_stage as u64);
+        data.push(self.join_time);
+        data.push(self.health);
+        data.push(self.satiety);
+        data.push(self.generated_coins);
+        data.push(self.collected_coins);
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Default)]
+pub struct PlayerData {
+    pid: [u64; 2],
     coins_balance: u64,
     food_number: u64,
     medicine_number: u64,
@@ -70,7 +89,43 @@ struct Player {
     dolphins: Vec<Dolphin>,
 }
 
+impl StorageData for PlayerData {
+    fn from_data(u64data: &mut IterMut<u64>) -> Self {
+        let mut player_data = PlayerData {
+            pid: [
+                *u64data.next().unwrap(),
+                *u64data.next().unwrap(),
+            ],
+            coins_balance: *u64data.next().unwrap(),
+            food_number: *u64data.next().unwrap(),
+            medicine_number: *u64data.next().unwrap(),
+            population_number: *u64data.next().unwrap(),
+            dolphins: vec![]
+        };
+        let dsize = *u64data.next().unwrap() as usize;
+        for _ in 0..dsize {
+            player_data.dolphins.push(Dolphin::from_data(u64data));
+        }
+        player_data
+    }
+    fn to_data(&self, data: &mut Vec<u64>) {
+        data.push(self.pid[0]);
+        data.push(self.pid[1]);
+        data.push(self.coins_balance);
+        data.push(self.food_number);
+        data.push(self.medicine_number);
+        data.push(self.population_number);
+        data.push(self.dolphins.len() as u64);
+        for i in 0..self.dolphins.len() {
+            self.dolphins[i].to_data(data);
+        }
+    }
+}
+
+
 // update state via command, Command：购买海豚，购买食物，购买药品，喂食海豚[I]，喂药海豚[I], 迎击邪恶巨鲸，购买栏位(population_number)
+//
+/*
 #[wasm_bindgen]
 pub fn update_state(command: u8, player: JsValue, dolphin_id: u64) -> JsValue {
     let mut player: Player = player.into_serde().unwrap();
@@ -190,3 +245,4 @@ pub fn zkmain() {
         wasm_dbg(c as u64);
     }
 }
+*/

@@ -15,6 +15,7 @@ test = []
 protocol = []
 
 [dependencies]
+num_enum = "0.5"
 primitive-types = {version="0.12.1", default-features = false}
 lazy_static = "1.4.0"
 zkwasm-rust-sdk = { git = "https://github.com/DelphinusLab/zkWasm-rust.git", default-features = true }
