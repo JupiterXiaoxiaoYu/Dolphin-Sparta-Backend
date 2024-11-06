@@ -1,18 +1,15 @@
 use std::{collections::LinkedList, slice::IterMut};
 use zkwasm_rest_abi::{StorageData, MERKLE_MAP};
 
-use crate::{
-    gameplay::Dolphin, state::DolphinPlayer
-};
 use crate::gameplay::PlayerData;
+use crate::{gameplay::Dolphin, state::DolphinPlayer};
 
 #[derive(Clone)]
 pub struct Event {
     pub pid: [u64; 2],
-    pub object_index: usize,  // dolphin index
+    pub object_index: usize, // dolphin index
     pub delta: usize,
 }
-
 
 impl StorageData for Event {
     fn to_data(&self, buf: &mut Vec<u64>) {
@@ -21,10 +18,7 @@ impl StorageData for Event {
         buf.push((self.object_index as u64) << 32 | (self.delta as u64));
     }
     fn from_data(u64data: &mut IterMut<u64>) -> Self {
-        let pid = [
-            *u64data.next().unwrap(),
-            *u64data.next().unwrap(),
-        ];
+        let pid = [*u64data.next().unwrap(), *u64data.next().unwrap()];
 
         let f = *u64data.next().unwrap();
         Event {
@@ -58,10 +52,7 @@ impl StorageData for EventQueue {
         for _ in 0..counter {
             list.push_back(Event::from_data(u64data));
         }
-        EventQueue {
-            counter,
-            list,
-        }
+        EventQueue { counter, list }
     }
 }
 
@@ -76,7 +67,9 @@ impl EventQueue {
         zkwasm_rust_sdk::dbg!("=-=-= dump queue =-=-=\n");
         for m in self.list.iter() {
             let delta = m.delta;
-            zkwasm_rust_sdk::dbg!("[{:?}] - {:?} - {}\n", {m.pid}, {m.delta}, {m.object_index});
+            zkwasm_rust_sdk::dbg!("[{:?}] - {:?} - {}\n", { m.pid }, { m.delta }, {
+                m.object_index
+            });
         }
         zkwasm_rust_sdk::dbg!("=-=-= end =-=-=\n");
     }
@@ -96,12 +89,7 @@ impl EventQueue {
         self.counter += 1;
     }
 
-    pub fn insert(
-        &mut self,
-        object_index: usize,
-        owner: &[u64; 2],
-        delta: usize,
-    ) {
+    pub fn insert(&mut self, object_index: usize, owner: &[u64; 2], delta: usize) {
         let mut delta = delta;
         let mut list = LinkedList::new();
         let mut tail = self.list.pop_front();
