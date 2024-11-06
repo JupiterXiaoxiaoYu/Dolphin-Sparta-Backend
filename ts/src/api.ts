@@ -75,6 +75,13 @@ export class Player {
     }
 
     async feedDolphin(dolphinId: number) {
+        const state = await this.getState();
+        if (!state.data.dolphins || !state.data.dolphins[dolphinId]) {
+            throw new Error(`Dolphin with ID ${dolphinId} does not exist`);
+        }
+        if (state.data.food_number <= 0) {
+            throw new Error('Not enough food');
+        }
         return this.sendGameCommand(CMD_FEED_DOLPHIN, dolphinId);
     }
 

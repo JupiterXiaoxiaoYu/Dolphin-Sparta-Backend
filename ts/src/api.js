@@ -7,6 +7,7 @@ const CMD_FEED_DOLPHIN = 19n;
 const CMD_HEAL_DOLPHIN = 20n;
 const CMD_ATTACK_EVIL_WHALE = 21n;
 const CMD_BUY_POPULATION = 22n;
+const CMD_COLLECT_COINS = 23n;
 function createCommand(command) {
     return command << 32n;
 }
@@ -56,6 +57,13 @@ export class Player {
         return this.sendGameCommand(CMD_BUY_MEDICINE);
     }
     async feedDolphin(dolphinId) {
+        const state = await this.getState();
+        if (!state.data.dolphins || !state.data.dolphins[dolphinId]) {
+            throw new Error(`Dolphin with ID ${dolphinId} does not exist`);
+        }
+        if (state.data.food_number <= 0) {
+            throw new Error('Not enough food');
+        }
         return this.sendGameCommand(CMD_FEED_DOLPHIN, dolphinId);
     }
     async healDolphin(dolphinId) {
@@ -66,6 +74,12 @@ export class Player {
     }
     async buyPopulation() {
         return this.sendGameCommand(CMD_BUY_POPULATION);
+    }
+    async collectCoins() {
+        return this.sendGameCommand(CMD_COLLECT_COINS);
+    }
+    async buySpecificDolphin(dolphinType) {
+        return this.sendGameCommand(CMD_BUY_DOLPHIN, dolphinType);
     }
 }
 //# sourceMappingURL=api.js.map

@@ -15,7 +15,8 @@ enum Command {
     HealDolphin = 4,
     AttackEvilWhale = 5,
     BuyPopulationNumber = 6,
-    CollectCoins = 7
+    CollectCoins = 7,
+    AddCoinsForTestOnly = 8,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, TryFromPrimitive, Copy, Clone)]
@@ -55,7 +56,7 @@ impl Default for Dolphin {
             life_stage: LifeStage::Baby,
             join_time: 0,
             health: 100,
-            satiety: 100,
+            satiety: 70,
             generated_coins: 0,
             collected_coins: 0,
         }
@@ -178,15 +179,16 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
                 player.dolphins.push(Dolphin {
                     id: player.dolphin_index,
                     name: dolphin_name,
-                    level: rand % 10 + 1,
+                    level: rand % 4 + 1,
                     life_stage: LifeStage::Baby,
                     join_time: 0,
-                    satiety: 100,
+                    satiety: 70,
                     health: 100,
                     generated_coins: 0,
                     collected_coins: 0,
                 });
                 player.dolphin_index += 1;
+                
             }
             Command::BuyFood => {
                 unsafe {
@@ -258,8 +260,11 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
                     dolphin.collected_coins += dolphin.generated_coins;
                 }
             }
+            Command::AddCoinsForTestOnly => {
+                player.coins_balance += 100;
+            }
         };
-        zkwasm_rust_sdk::dbg!("player state update {:?}", command);
+        zkwasm_rust_sdk::dbg!("player state update {:?}, {:?}", command, dolphin_id);
         Ok(())
     })
 }
