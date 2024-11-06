@@ -188,7 +188,7 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
                     collected_coins: 0,
                 });
                 player.dolphin_index += 1;
-                
+
             }
             Command::BuyFood => {
                 unsafe {
@@ -205,6 +205,7 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
                 player.medicine_number += 5;
             }
             Command::FeedDolphin => {
+                zkwasm_rust_sdk::dbg!("feed {:?}, dolphin id {:?}", command, dolphin_id);
                 unsafe {
                     require(player.food_number > 0);
                     require(player.dolphins.len() > 0);
@@ -218,6 +219,7 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
                 }
             }
             Command::HealDolphin => {
+                zkwasm_rust_sdk::dbg!("feed {:?}, dolphin id {:?}", command, dolphin_id);
                 unsafe {
                     require(player.medicine_number > 0);
                     require(player.dolphins.len() > 0);
@@ -230,7 +232,7 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
                 unsafe {
                     require(player.dolphins.len() > 0);
                 }
-                //all dolphins health to 
+                //all dolphins health to
                 //collect all coins
                 unsafe {
                     require(player.coins_balance >= 1000);
@@ -264,7 +266,7 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
                 player.coins_balance += 100;
             }
         };
-        zkwasm_rust_sdk::dbg!("player state update {:?}, {:?}", command, dolphin_id);
+        zkwasm_rust_sdk::dbg!("player state update {:?}, dolphin id {:?}", command, dolphin_id);
         Ok(())
     })
 }
