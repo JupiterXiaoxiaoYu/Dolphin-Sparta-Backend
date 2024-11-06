@@ -9,6 +9,7 @@ const CMD_FEED_DOLPHIN = 19n;
 const CMD_HEAL_DOLPHIN = 20n;
 const CMD_ATTACK_EVIL_WHALE = 21n;
 const CMD_BUY_POPULATION = 22n;
+const CMD_COLLECT_COINS = 23n;
 
 function createCommand(command: bigint) {
     return command << 32n;
@@ -87,6 +88,14 @@ export class Player {
 
     async buyPopulation() {
         return this.sendGameCommand(CMD_BUY_POPULATION);
+    }
+
+    async collectCoins() {
+        return this.sendGameCommand(CMD_COLLECT_COINS);
+    }
+
+    async buySpecificDolphin(dolphinType: number) {
+        return this.sendGameCommand(CMD_BUY_DOLPHIN, dolphinType);
     }
 }
 

@@ -92,7 +92,7 @@ impl Transaction {
             let pid = DolphinPlayer::pkey_to_pid(pkey);
             let mut player = DolphinPlayer::get_from_pid(&pid);
             if let Some(mut player) = player {
-                update_state(self.command & 0xf, &mut player.data, self.data[0])
+                update_state(self.command & 0xf, &mut player.data, self.data[0], _rand[0])
                     .map_or(ERROR_INVALID_COMMAND, |_| 0);
                 player.store();
                 0

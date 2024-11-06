@@ -12,10 +12,14 @@ async function testGameplay() {
         let state = await player.getState();
         console.log("Initial state:", state);
 
-        // 2. 购买海豚
-        await player.buyDolphin();
+        // 2. 购买不同类型的海豚
+        await player.buySpecificDolphin(0); // DolphinArcher
         state = await player.getState();
-        console.log("After buying dolphin:", state);
+        console.log("After buying archer dolphin:", state);
+
+        await player.buySpecificDolphin(1); // DolphinPikeman
+        state = await player.getState();
+        console.log("After buying pikeman dolphin:", state);
 
         // 3. 购买食物
         await player.buyFood();
@@ -28,21 +32,26 @@ async function testGameplay() {
         console.log("After buying medicine:", state);
 
         // 5. 喂食海豚
-        await player.feedDolphin(0); // 给 ID 为 0 的海豚喂食
+        await player.feedDolphin(0);
         state = await player.getState();
-        console.log("After feeding dolphin:", state);
+        console.log("After feeding dolphin 0:", state);
 
         // 6. 治疗海豚
-        await player.healDolphin(0); // 给 ID 为 0 的海豚治疗
+        await player.healDolphin(1);
         state = await player.getState();
-        console.log("After healing dolphin:", state);
+        console.log("After healing dolphin 1:", state);
 
-        // 7. 攻击邪恶巨鲸
+        // 7. 收集金币
+        await player.collectCoins();
+        state = await player.getState();
+        console.log("After collecting coins:", state);
+
+        // 8. 攻击邪恶巨鲸
         await player.attackEvilWhale();
         state = await player.getState();
         console.log("After attacking evil whale:", state);
 
-        // 8. 购买栏位
+        // 9. 购买栏位
         await player.buyPopulation();
         state = await player.getState();
         console.log("After buying population slot:", state);

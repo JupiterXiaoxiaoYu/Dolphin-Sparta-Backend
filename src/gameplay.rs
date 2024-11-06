@@ -15,6 +15,7 @@ enum Command {
     HealDolphin = 4,
     AttackEvilWhale = 5,
     BuyPopulationNumber = 6,
+    CollectCoins = 7
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, TryFromPrimitive, Copy, Clone)]
@@ -28,12 +29,8 @@ enum LifeStage {
 #[repr(u32)]
 enum DolphinName {
     DolphinArcher = 0,
-    DolphinKnight = 1,
-    DolphinMage = 2,
-    DolphinPriest = 3,
-    DolphinRogue = 4,
-    DolphinWarrior = 5,
-    DolphinWizard = 6,
+    DolphinPikeman = 1,
+    DolphinWarrior = 2,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -97,6 +94,8 @@ impl StorageData for Dolphin {
 pub struct PlayerData {
     pid: [u64; 2],
     coins_balance: u64,
+    dolphin_token_balance: u64,
+    dolphin_index: u64,
     food_number: u64,
     medicine_number: u64,
     population_number: u64,
@@ -107,7 +106,9 @@ impl Default for PlayerData {
     fn default() -> Self {
         PlayerData {
             pid: [0, 0],
-            coins_balance: 1200,    // 修改默认值
+            dolphin_token_balance: 0,
+            dolphin_index: 0,
+            coins_balance: 1500,    // 修改默认值
             food_number: 10,        // 修改默认值
             medicine_number: 2,     // 修改默认值
             population_number: 3,   // 修改默认值
@@ -121,6 +122,8 @@ impl StorageData for PlayerData {
         let mut player_data = PlayerData {
             pid: [*u64data.next().unwrap(), *u64data.next().unwrap()],
             coins_balance: *u64data.next().unwrap(),
+            dolphin_index: *u64data.next().unwrap(),
+            dolphin_token_balance: *u64data.next().unwrap(),
             food_number: *u64data.next().unwrap(),
             medicine_number: *u64data.next().unwrap(),
             population_number: *u64data.next().unwrap(),
@@ -136,6 +139,8 @@ impl StorageData for PlayerData {
         data.push(self.pid[0]);
         data.push(self.pid[1]);
         data.push(self.coins_balance);
+        data.push(self.dolphin_token_balance);
+        data.push(self.dolphin_index);
         data.push(self.food_number);
         data.push(self.medicine_number);
         data.push(self.population_number);
@@ -147,19 +152,33 @@ impl StorageData for PlayerData {
 }
 
 // update state via command, Command：购买海豚，购买食物，购买药品，喂食海豚[I]，喂药海豚[I], 迎击邪恶巨鲸，购买栏位(population_number)
-pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64) -> Result<(), u32> {
+pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand: u64) -> Result<(), u32> {
     Command::try_from(command as u32).map_or(Err(1), |command| {
         match command {
             Command::BuyDolphin => {
+                let dolphin_name = match dolphin_id {
+                    0 => DolphinName::DolphinArcher,
+                    1 => DolphinName::DolphinPikeman,
+                    _ => DolphinName::DolphinWarrior,
+                };
                 unsafe {
-                    require(player.coins_balance >= 100);
+                    if dolphin_name == DolphinName::DolphinArcher {
+                        require(player.coins_balance >= 200);
+                        player.coins_balance -= 200;
+                    }else if dolphin_name == DolphinName::DolphinPikeman {
+                        require(player.coins_balance >= 150);
+                        player.coins_balance -= 150;
+                    }else {
+                        require(player.coins_balance >= 100);
+                        player.coins_balance -= 100;
+                    }
                     require(!(player.dolphins.len() as u64 >= player.population_number));
                 }
-                player.coins_balance -= 100;
+                
                 player.dolphins.push(Dolphin {
-                    id: player.dolphins.len() as u64,
-                    name: DolphinName::DolphinArcher,
-                    level: 1,
+                    id: player.dolphin_index,
+                    name: dolphin_name,
+                    level: rand % 10 + 1,
                     life_stage: LifeStage::Baby,
                     join_time: 0,
                     satiety: 100,
@@ -167,33 +186,40 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64) -> R
                     generated_coins: 0,
                     collected_coins: 0,
                 });
+                player.dolphin_index += 1;
             }
             Command::BuyFood => {
                 unsafe {
-                    require(player.coins_balance >= 10);
+                    require(player.coins_balance >= 50);
                 }
-                player.coins_balance -= 10;
-                player.food_number += 1;
+                player.coins_balance -= 50;
+                player.food_number += 5;
             }
             Command::BuyMedicine => {
                 unsafe {
-                    require(player.coins_balance >= 20);
+                    require(player.coins_balance >= 150);
                 }
-                player.coins_balance -= 20;
-                player.medicine_number += 1;
+                player.coins_balance -= 150;
+                player.medicine_number += 5;
             }
             Command::FeedDolphin => {
                 unsafe {
                     require(player.food_number > 0);
                     require(player.dolphins.len() > 0);
+                    require(dolphin_id < player.dolphin_index);
                 }
                 player.food_number -= 1;
-                player.dolphins[dolphin_id as usize].satiety += 10;
+                if(player.dolphins[dolphin_id as usize].satiety <= 90) {
+                    player.dolphins[dolphin_id as usize].satiety += 10;
+                }else {
+                    player.dolphins[dolphin_id as usize].satiety = 100;
+                }
             }
             Command::HealDolphin => {
                 unsafe {
                     require(player.medicine_number > 0);
                     require(player.dolphins.len() > 0);
+                    require(dolphin_id < player.dolphin_index);
                 }
                 player.medicine_number -= 1;
                 player.dolphins[dolphin_id as usize].health = 100;
@@ -202,23 +228,35 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64) -> R
                 unsafe {
                     require(player.dolphins.len() > 0);
                 }
-                //all dolphins health to 0
+                //all dolphins health to 
+                //collect all coins
+                unsafe {
+                    require(player.coins_balance >= 1000);
+                }
+                player.coins_balance -= 1000;
+
                 for dolphin in player.dolphins.iter_mut() {
                     dolphin.health = 0;
+                    dolphin.satiety = 0;    
                 }
-                //collect all coins
+                player.dolphin_token_balance += 50;
+            }
+            Command::BuyPopulationNumber => {
+                unsafe {
+                    require(player.coins_balance >= 200);
+                }
+                player.coins_balance -= 200;
+                player.population_number += 1;
+            }
+            Command::CollectCoins => {
+                unsafe {
+                    require(player.dolphins.len() > 0);
+                }
                 for dolphin in player.dolphins.iter_mut() {
                     player.coins_balance += dolphin.generated_coins;
                     dolphin.generated_coins = 0;
                     dolphin.collected_coins += dolphin.generated_coins;
                 }
-            }
-            Command::BuyPopulationNumber => {
-                unsafe {
-                    require(player.coins_balance >= 100);
-                }
-                player.coins_balance -= 200;
-                player.population_number += 1;
             }
         };
         zkwasm_rust_sdk::dbg!("player state update {:?}", command);
