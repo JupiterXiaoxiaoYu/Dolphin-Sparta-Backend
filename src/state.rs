@@ -80,6 +80,7 @@ impl Transaction {
             Some(_) => ERROR_PLAYER_ALREADY_EXIST,
             None => {
                 let player = DolphinPlayer::new_from_pid(pid);
+                player.check_and_inc_nonce(self.nonce);
                 player.store();
                 0
             }
