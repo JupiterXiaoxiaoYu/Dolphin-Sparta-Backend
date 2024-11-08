@@ -48,6 +48,7 @@ pub static mut STATE: State = State {};
 
 pub struct Transaction {
     pub command: u64,
+    pub nonce: u64,
     pub data: Vec<u64>,
 }
 
@@ -69,9 +70,10 @@ impl Transaction {
         }
     }
     pub fn decode(params: [u64; 4]) -> Self {
-        let command = (params[0] >> 32) & 0xff;
+        let command = params[0] & 0xff;
+        let nonce = params[0] >> 16;
         let data = vec![params[1], params[2], params[3]]; // pkey[0], pkey[1], amount
-        Transaction { command, data }
+        Transaction { command,nonce, data }
     }
     pub fn install_player(&self, pkey: &[u64; 4]) -> u32 {
         let pid = DolphinPlayer::pkey_to_pid(pkey);
@@ -80,7 +82,6 @@ impl Transaction {
             Some(_) => ERROR_PLAYER_ALREADY_EXIST,
             None => {
                 let player = DolphinPlayer::new_from_pid(pid);
-                player.check_and_inc_nonce(self.nonce);
                 player.store();
                 0
             }
@@ -96,6 +97,7 @@ impl Transaction {
             if let Some(mut player) = player {
                 update_state(self.command & 0xf, &mut player.data, self.data[0], _rand[0])
                     .map_or(ERROR_INVALID_COMMAND, |_| 0);
+                player.check_and_inc_nonce(self.nonce);
                 player.store();
                 0
             } else {
