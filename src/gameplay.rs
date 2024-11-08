@@ -17,6 +17,7 @@ enum Command {
     BuyPopulationNumber = 6,
     CollectCoins = 7,
     AddCoinsForTestOnly = 8,
+    SellDolphin = 9,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, TryFromPrimitive, Copy, Clone)]
@@ -175,7 +176,6 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
                     }
                     require(!(player.dolphins.len() as u64 >= player.population_number));
                 }
-                
                 player.dolphins.push(Dolphin {
                     id: player.dolphin_index,
                     name: dolphin_name,
@@ -188,7 +188,6 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
                     collected_coins: 0,
                 });
                 player.dolphin_index += 1;
-
             }
             Command::BuyFood => {
                 unsafe {
@@ -264,6 +263,27 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
             }
             Command::AddCoinsForTestOnly => {
                 player.coins_balance += 100;
+            }
+            Command::SellDolphin => {
+                unsafe {
+                    require(player.dolphins.len() > 0);
+                    require(dolphin_id < player.dolphin_index);
+                }
+                
+                // 找到对应 dolphin_id 的海豚在数组中的位置
+                let dolphin_position = player.dolphins.iter()
+                    .position(|d| d.id == dolphin_id)
+                    .ok_or(1u32)?;  // 如果找不到返回错误
+                
+                let dolphin = &player.dolphins[dolphin_position];
+                let sell_price = match dolphin.name {
+                    DolphinName::DolphinArcher => 100,  // 200的一半
+                    DolphinName::DolphinPikeman => 75,  // 150的一半
+                    DolphinName::DolphinWarrior => 50,  // 100的一半
+                };
+                
+                player.coins_balance += sell_price;
+                player.dolphins.remove(dolphin_position);
             }
         };
         zkwasm_rust_sdk::dbg!("player state update {:?}, dolphin id {:?}", command, dolphin_id);

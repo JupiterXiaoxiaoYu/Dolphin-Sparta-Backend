@@ -1,6 +1,6 @@
 import { Player } from "./api.js";
 // 创建玩家实例
-const account = "123445";
+const account = "2143524524545";
 const player = new Player(account, "http://localhost:3000");
 async function testGameplay() {
     try {
@@ -17,9 +17,6 @@ async function testGameplay() {
             await player.buySpecificDolphin(0); // DolphinArcher
             state = await player.getState();
             console.log("After buying archer dolphin:", JSON.stringify(state, null, 2));
-            await player.buySpecificDolphin(1); // DolphinPikeman
-            state = await player.getState();
-            console.log("After buying pikeman dolphin:", JSON.stringify(state, null, 2));
         }
         if (state.player.data.food_number <= 15) {
             // 3. 购买食物
@@ -30,6 +27,9 @@ async function testGameplay() {
         else {
             console.log("Food already enough, skipping food purchase");
         }
+        await player.buySpecificDolphin(1); // DolphinPikeman
+        state = await player.getState();
+        console.log("After buying pikeman dolphin:", JSON.stringify(state, null, 2));
         // 4. 购买药品
         if (state.player.data.medicine_number <= 10) {
             await player.buyMedicine();
