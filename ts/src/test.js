@@ -1,6 +1,6 @@
 import { Player } from "./api.js";
 // 创建玩家实例
-const account = "9284742";
+const account = "427424228";
 const player = new Player(account, "http://localhost:3000");
 async function testGameplay() {
     try {
@@ -14,12 +14,49 @@ async function testGameplay() {
         }
         else {
             // 2. 购买不同类型的海豚
-            await player.buyDolphin(0); // DolphinArcher
+            await player.buyDolphin(0);
             state = await player.getState();
             console.log("After buying archer dolphin:", JSON.stringify(state, null, 2));
             await player.buyDolphin(1); // DolphinPikeman
             state = await player.getState();
             console.log("After buying pikeman dolphin:", JSON.stringify(state, null, 2));
+            await player.buyDolphin(1); // DolphinPikeman
+            state = await player.getState();
+            console.log("After buying pikeman dolphin:", JSON.stringify(state, null, 2));
+            await player.buyPopulation();
+            state = await player.getState();
+            console.log("After buying population slot:", JSON.stringify(state, null, 2));
+            await player.buyDolphin(1); // DolphinPikeman
+            state = await player.getState();
+            console.log("After buying pikeman dolphin:", JSON.stringify(state, null, 2));
+            if (state.player.data.dolphins.length > 0) {
+                state = await player.getState();
+                const dolphinToSell = state.player.data.dolphins[0];
+                await player.sellDolphin(dolphinToSell.id); // 使用海豚的实际 ID
+                state = await player.getState();
+                console.log("After selling dolphin:", JSON.stringify(state, null, 2));
+            }
+            if (state.player.data.dolphins.length > 0) {
+                state = await player.getState();
+                const dolphinToSell = state.player.data.dolphins[0];
+                await player.sellDolphin(dolphinToSell.id); // 使用海豚的实际 ID
+                state = await player.getState();
+                console.log("After selling dolphin:", JSON.stringify(state, null, 2));
+            }
+            if (state.player.data.dolphins.length > 0) {
+                state = await player.getState();
+                const dolphinToSell = state.player.data.dolphins[0];
+                await player.sellDolphin(dolphinToSell.id); // 使用海豚的实际 ID
+                state = await player.getState();
+                console.log("After selling dolphin:", JSON.stringify(state, null, 2));
+            }
+            if (state.player.data.dolphins.length > 0) {
+                state = await player.getState();
+                const dolphinToSell = state.player.data.dolphins[0];
+                await player.sellDolphin(dolphinToSell.id); // 使用海豚的实际 ID
+                state = await player.getState();
+                console.log("After selling dolphin:", JSON.stringify(state, null, 2));
+            }
         }
         if (state.player.data.food_number <= 15) {
             // 3. 购买食物

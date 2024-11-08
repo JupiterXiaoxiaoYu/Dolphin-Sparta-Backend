@@ -30,9 +30,8 @@ enum LifeStage {
 #[derive(Serialize, Deserialize, Debug, PartialEq, TryFromPrimitive, Copy, Clone)]
 #[repr(u32)]
 enum DolphinName {
-    DolphinArcher = 0,
-    DolphinPikeman = 1,
-    DolphinWarrior = 2,
+    DolphinPikeman = 0,
+    DolphinWarrior = 1,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -110,7 +109,7 @@ impl Default for PlayerData {
             pid: [0, 0],
             dolphin_token_balance: 0,
             dolphin_index: 0,
-            coins_balance: 1500,    // 修改默认值
+            coins_balance: 2000,    // 修改默认值
             food_number: 10,        // 修改默认值
             medicine_number: 2,     // 修改默认值
             population_number: 3,   // 修改默认值
@@ -124,8 +123,8 @@ impl StorageData for PlayerData {
         let mut player_data = PlayerData {
             pid: [*u64data.next().unwrap(), *u64data.next().unwrap()],
             coins_balance: *u64data.next().unwrap(),
-            dolphin_index: *u64data.next().unwrap(),
             dolphin_token_balance: *u64data.next().unwrap(),
+            dolphin_index: *u64data.next().unwrap(),
             food_number: *u64data.next().unwrap(),
             medicine_number: *u64data.next().unwrap(),
             population_number: *u64data.next().unwrap(),
@@ -159,15 +158,11 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
         match command {
             Command::BuyDolphin => {
                 let dolphin_name = match dolphin_id {
-                    0 => DolphinName::DolphinArcher,
-                    1 => DolphinName::DolphinPikeman,
+                    0 => DolphinName::DolphinPikeman,
                     _ => DolphinName::DolphinWarrior,
                 };
                 unsafe {
-                    if dolphin_name == DolphinName::DolphinArcher {
-                        require(player.coins_balance >= 200);
-                        player.coins_balance -= 200;
-                    }else if dolphin_name == DolphinName::DolphinPikeman {
+                    if dolphin_name == DolphinName::DolphinPikeman {
                         require(player.coins_balance >= 150);
                         player.coins_balance -= 150;
                     }else {
@@ -210,22 +205,34 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
                     require(player.dolphins.len() > 0);
                     require(dolphin_id < player.dolphin_index);
                 }
+
+                // 找到对应 dolphin_id 的海豚在数组中的位置
+                let dolphin_position = player.dolphins.iter()
+                    .position(|d| d.id == dolphin_id)
+                    .ok_or(1u32)?;
+                
                 player.food_number -= 1;
-                if(player.dolphins[dolphin_id as usize].satiety <= 90) {
-                    player.dolphins[dolphin_id as usize].satiety += 10;
-                }else {
-                    player.dolphins[dolphin_id as usize].satiety = 100;
+                if player.dolphins[dolphin_position].satiety <= 90 {
+                    player.dolphins[dolphin_position].satiety += 10;
+                } else {
+                    player.dolphins[dolphin_position].satiety = 100;
                 }
             }
             Command::HealDolphin => {
-                zkwasm_rust_sdk::dbg!("feed {:?}, dolphin id {:?}", command, dolphin_id);
+                zkwasm_rust_sdk::dbg!("heal {:?}, dolphin id {:?}", command, dolphin_id);
                 unsafe {
                     require(player.medicine_number > 0);
                     require(player.dolphins.len() > 0);
                     require(dolphin_id < player.dolphin_index);
                 }
+
+                // 找到对应 dolphin_id 的海豚在数组中的位置
+                let dolphin_position = player.dolphins.iter()
+                    .position(|d| d.id == dolphin_id)
+                    .ok_or(1u32)?;
+                
                 player.medicine_number -= 1;
-                player.dolphins[dolphin_id as usize].health = 100;
+                player.dolphins[dolphin_position].health = 100;
             }
             Command::AttackEvilWhale => {
                 unsafe {
@@ -274,10 +281,9 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
                 let dolphin_position = player.dolphins.iter()
                     .position(|d| d.id == dolphin_id)
                     .ok_or(1u32)?;  // 如果找不到返回错误
-                
+                zkwasm_rust_sdk::dbg!("dolphin_position{:?}", dolphin_position);
                 let dolphin = &player.dolphins[dolphin_position];
                 let sell_price = match dolphin.name {
-                    DolphinName::DolphinArcher => 100,  // 200的一半
                     DolphinName::DolphinPikeman => 75,  // 150的一半
                     DolphinName::DolphinWarrior => 50,  // 100的一半
                 };
