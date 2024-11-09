@@ -7,7 +7,8 @@ use zkwasm_rest_abi::Player;
 pub type DolphinPlayer = Player<PlayerData>;
 
 #[derive(Serialize)]
-pub struct State {}
+pub struct State {
+}
 
 impl State {
     pub fn get_state(pkey: Vec<u64>) -> String {
