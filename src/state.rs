@@ -3,6 +3,9 @@ use crate::settlement::SettlementInfo;
 use crate::MERKLE_MAP;
 use serde::Serialize;
 use zkwasm_rest_abi::Player;
+use crate::event::QUEUE;
+use std::cell::RefCell;
+
 
 pub type DolphinPlayer = Player<PlayerData>;
 
@@ -21,9 +24,13 @@ impl State {
         0
     }
 
-    pub fn store(&self) {}
+    pub fn store(&self) {
+        QUEUE.0.borrow_mut().store();
+    }
 
-    pub fn initialize() {}
+    pub fn initialize() {
+        QUEUE.0.borrow_mut().fetch();
+    }
 
     pub fn new() -> Self {
         State {}
@@ -54,6 +61,7 @@ pub struct Transaction {
 }
 
 // 简化命令常量
+const CMD_TICK: u64 = 0;
 const INSTALL_PLAYER: u64 = 1;
 
 // 简化错误常量
@@ -106,6 +114,7 @@ impl Transaction {
             }
         } else {
             match self.command {
+                CMD_TICK => QUEUE.0.borrow_mut().tick(),
                 INSTALL_PLAYER => self.install_player(pkey),
                 _ => 0,
             }

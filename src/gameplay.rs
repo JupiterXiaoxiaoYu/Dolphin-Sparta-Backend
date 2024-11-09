@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::slice::IterMut;
 use zkwasm_rest_abi::StorageData;
 use zkwasm_rust_sdk::{require, wasm_dbg};
+use crate::event::QUEUE;
+use crate::event::EventType;
 
 //基础玩法，没有实现抽卡(随机数）、阶梯化价格（modifier）、成长（时间序列）、收货金币（时间序列）
 #[derive(Serialize, Deserialize, Debug, PartialEq, TryFromPrimitive, Copy, Clone)]
@@ -22,29 +24,22 @@ enum Command {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, TryFromPrimitive, Copy, Clone)]
 #[repr(u32)]
-enum LifeStage {
-    Baby = 0,
-    Adult = 1,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq, TryFromPrimitive, Copy, Clone)]
-#[repr(u32)]
-enum DolphinName {
+pub enum DolphinName {
     DolphinPikeman = 0,
     DolphinWarrior = 1,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Dolphin {
-    id: u64,
-    name: DolphinName,
-    level: u64,
-    life_stage: LifeStage,
-    join_time: u64,
-    health: u64,
-    satiety: u64,
-    generated_coins: u64,
-    collected_coins: u64,
+    pub id: u64,
+    pub name: DolphinName,
+    pub level: u64,
+    pub life_stage: u64,
+    pub join_time: u64,
+    pub health: u64,
+    pub satiety: u64,
+    pub generated_coins: u64,
+    pub collected_coins: u64,
 }
 
 impl Default for Dolphin {
@@ -53,7 +48,7 @@ impl Default for Dolphin {
             id: 0,
             name: DolphinName::DolphinWarrior,
             level: 1,
-            life_stage: LifeStage::Baby,
+            life_stage: 0,
             join_time: 0,
             health: 100,
             satiety: 70,
@@ -69,7 +64,7 @@ impl StorageData for Dolphin {
             id: *u64data.next().unwrap(),
             name: DolphinName::try_from(*u64data.next().unwrap() as u32).unwrap(),
             level: *u64data.next().unwrap(),
-            life_stage: LifeStage::try_from(*u64data.next().unwrap() as u32).unwrap(),
+            life_stage: *u64data.next().unwrap(),
             join_time: *u64data.next().unwrap(),
             health: *u64data.next().unwrap(),
             satiety: *u64data.next().unwrap(),
@@ -82,7 +77,7 @@ impl StorageData for Dolphin {
         data.push(self.id);
         data.push(self.name as u64);
         data.push(self.level);
-        data.push(self.life_stage as u64);
+        data.push(self.life_stage);
         data.push(self.join_time);
         data.push(self.health);
         data.push(self.satiety);
@@ -93,14 +88,14 @@ impl StorageData for Dolphin {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct PlayerData {
-    pid: [u64; 2],
-    coins_balance: u64,
-    dolphin_token_balance: u64,
-    dolphin_index: u64,
-    food_number: u64,
-    medicine_number: u64,
-    population_number: u64,
-    dolphins: Vec<Dolphin>,
+    pub pid: [u64; 2],
+    pub coins_balance: u64,
+    pub dolphin_token_balance: u64,
+    pub dolphin_index: u64,
+    pub food_number: u64,
+    pub medicine_number: u64,
+    pub population_number: u64,
+    pub dolphins: Vec<Dolphin>,
 }
 
 impl Default for PlayerData {
@@ -175,7 +170,7 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
                     id: player.dolphin_index,
                     name: dolphin_name,
                     level: rand % 4 + 1,
-                    life_stage: LifeStage::Baby,
+                    life_stage: 0,
                     join_time: 0,
                     satiety: 70,
                     health: 100,
@@ -183,6 +178,8 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
                     collected_coins: 0,
                 });
                 player.dolphin_index += 1;
+                //insert event to queue
+                QUEUE.0.borrow_mut().insert(player.dolphin_index as usize, EventType::Grow as usize, &player.pid, 10);
             }
             Command::BuyFood => {
                 unsafe {
