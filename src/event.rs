@@ -51,26 +51,81 @@ pub struct EventQueue {
     pub list: std::collections::LinkedList<Event>,
 }
 
-pub fn apply_dolphin_event(player: &mut DolphinPlayer, dolphin_position: usize, event_type: usize) -> Result<(), u32> {
-    let object = &mut player.data.dolphins[dolphin_position];
+pub struct EventResult {
+    pub object_id: usize,
+    pub event_type: usize,
+    pub owner: [u64; 2],
+    pub delta: usize,
+}
+
+pub fn apply_dolphin_event(player: &mut DolphinPlayer, dolphin_position: usize, event_type: usize) -> Result<EventResult, u32> {
+    zkwasm_rust_sdk::dbg!("=-=-= dolphin_position =-=-= {:?}\n", {dolphin_position});   
+    zkwasm_rust_sdk::dbg!("=-=-= dolphin_len =-=-= {:?}\n", {player.data.dolphins.len()});
+    let object = player.data.dolphins.get_mut(dolphin_position).ok_or(1u32)?;
     if event_type == EventType::Grow as usize {
+        zkwasm_rust_sdk::dbg!("=-=-= grow =-=-= {:?}\n", {object.life_stage});
         if object.life_stage <= 80 {
             object.life_stage += 20;
+            zkwasm_rust_sdk::dbg!("=-=-= grow after =-=-= {:?}\n", {object.life_stage});
+            Ok(EventResult {
+                object_id: object.id as usize,
+                event_type: EventType::Grow as usize,
+                owner: player.player_id,
+                delta: 3,
+            })
+            
         } else {
             object.life_stage = 100;
+            Ok(EventResult {
+                object_id: object.id as usize,
+                event_type: EventType::GenerateCoin as usize,
+                owner: player.player_id,
+                delta: 3,
+            })
         }
-        QUEUE.0.borrow_mut().insert(object.id as usize, EventType::GenerateCoin as usize, &player.data.pid, 5);
+        // zkwasm_rust_sdk::dbg!("=-=-= grow after =-=-= {:?}\n", {object.life_stage});
+        // zkwasm_rust_sdk::dbg!("=-=-= player_id =-=-= {:?}\n", {player.player_id});  
+        // zkwasm_rust_sdk::dbg!("=-=-= object_id =-=-= {:?}\n", {object.id});
+        // QUEUE.0.borrow_mut().insert(object.id as usize, EventType::GenerateCoin as usize, &player.player_id, 3);
     } else if event_type == EventType::Starve as usize {
-        object.satiety -= 10;
-        if object.satiety < 0 {
+        if(object.satiety<=5){
             object.satiety = 0;
+            if(object.health<5){
+                object.health = 0;
+            }else{
+                object.health -= 5;
+            }
+        }else{
+            object.satiety -= 5;
         }
-        QUEUE.0.borrow_mut().insert(object.id as usize, EventType::Starve as usize, &player.data.pid, 5);
+        Ok(EventResult {
+            object_id: object.id as usize,
+            event_type: EventType::Starve as usize,
+            owner: player.player_id,
+            delta: 3,
+        })
+        // QUEUE.0.borrow_mut().insert(object.id as usize, EventType::Starve as usize, &&player.player_id, 5);
     } else if event_type == EventType::GenerateCoin as usize {
-        object.generated_coins += object.level;
-        QUEUE.0.borrow_mut().insert(object.id as usize, EventType::GenerateCoin as usize, &player.data.pid, 5);
+        if(object.health>0){
+            //max collected coins = 1000
+            if(object.collected_coins+object.level*10>1000*object.level){
+                object.generated_coins += 0;
+            }else {
+                object.generated_coins += object.level * 10;
+            }
+        }else {
+            object.generated_coins += 0;
+        }
+        Ok(EventResult {
+            object_id: object.id as usize,
+            event_type: EventType::GenerateCoin as usize,
+            owner: player.player_id,
+            delta: 3,
+        })
+        // QUEUE.0.borrow_mut().insert(object.id as usize, EventType::GenerateCoin as usize, &&player.player_id, 5);
+    } else {
+        Err(2u32)
     }
-    Ok(())
 }
 
 impl StorageData for EventQueue {
@@ -118,27 +173,54 @@ impl EventQueue {
         zkwasm_rust_sdk::dbg!("=-=-= dump queue =-=-=\n");
         for m in self.list.iter() {
             let delta = m.delta;
-            zkwasm_rust_sdk::dbg!("[{:?}] - {:?} - {}\n", {m.pid}, {m.delta}, {m.object_index});
+            zkwasm_rust_sdk::dbg!("[{:?}] - delta: {:?} - object_index: {:?} - event_type: {:?}\n", {m.pid}, {m.delta}, {m.object_index}, {m.event_type});
         }
         zkwasm_rust_sdk::dbg!("=-=-= end =-=-=\n");
     }
     pub fn tick(&mut self) -> u32 {
         self.dump();
+        let mut event_list = Vec::new();
         let counter = self.counter;
         while let Some(head) = self.list.front_mut() {
             if head.delta == 0 {
                 let objindex = head.object_index;
                 let event_type = head.event_type;
+                zkwasm_rust_sdk::dbg!("=-=-= tick =-=-= pid: {:?} - object_index: {:?} - event_type: {:?}\n", {head.pid}, {head.object_index}, {head.event_type});
                 let mut player = DolphinPlayer::get_from_pid(&head.pid).unwrap();
-                let dolphin_position = player.data.dolphins.iter().position(|d| d.id == objindex as u64).ok_or(1u32).unwrap() as usize;
-                apply_dolphin_event(&mut player, dolphin_position, event_type);
+                //zkwasm_rust_sdk::dbg!("=-=-= player =-=-= {:?}\n", {player.data.pid});
+                zkwasm_rust_sdk::dbg!("=-=-= dolphin_len =-=-= {:?}\n", {player.data.dolphins.len()});
+                zkwasm_rust_sdk::dbg!("Looking for dolphin with id: {:?}\n", objindex);
+                let dolphin_ids = player.data.dolphins.iter().map(|d| d.id).collect::<Vec<_>>();
+                zkwasm_rust_sdk::dbg!("Available dolphin IDs: {:?}\n", dolphin_ids);
+                let dolphin_position = player.data.dolphins
+                    .iter()
+                    .position(|d| d.id == objindex as u64)
+                    .ok_or_else(|| {
+                        zkwasm_rust_sdk::dbg!("Failed to find dolphin with id: {:?}\n", objindex);
+                        1u32
+                    })
+                    .unwrap() as usize;
+                zkwasm_rust_sdk::dbg!("=-=-= dolphin_position =-=-= {:?}\n", {dolphin_position});
+                let result = apply_dolphin_event(&mut player, dolphin_position, event_type);
+                self.list.pop_front();
+                player.store();
+                if let Ok(r) = result {
+                    event_list.push(r);
+                }else {
+                    break;
+                }
+                
             } else {
                 head.delta -= 1;
                 break;
             }
         }
+
+        for event in event_list.iter() {
+            self.insert(event.object_id, event.event_type, &event.owner, event.delta);
+        }
         self.counter += 1;
-        self.counter.try_into().unwrap()
+        self.counter as u32
     }
 
     pub fn insert(

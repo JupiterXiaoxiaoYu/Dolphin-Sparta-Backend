@@ -5,6 +5,7 @@ use zkwasm_rest_abi::StorageData;
 use zkwasm_rust_sdk::{require, wasm_dbg};
 use crate::event::QUEUE;
 use crate::event::EventType;
+use crate::state::DolphinPlayer;
 
 //基础玩法，没有实现抽卡(随机数）、阶梯化价格（modifier）、成长（时间序列）、收货金币（时间序列）
 #[derive(Serialize, Deserialize, Debug, PartialEq, TryFromPrimitive, Copy, Clone)]
@@ -148,7 +149,9 @@ impl StorageData for PlayerData {
 }
 
 // update state via command, Command：购买海豚，购买食物，购买药品，喂食海豚[I]，喂药海豚[I], 迎击邪恶巨鲸，购买栏位(population_number)
-pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand: u64) -> Result<(), u32> {
+pub fn update_state(command: u64, dplayer: &mut DolphinPlayer, dolphin_id: u64, rand: u64) -> Result<(), u32> {
+    let player = &mut dplayer.data;
+    let pid = dplayer.player_id;
     Command::try_from(command as u32).map_or(Err(1), |command| {
         match command {
             Command::BuyDolphin => {
@@ -177,9 +180,11 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
                     generated_coins: 0,
                     collected_coins: 0,
                 });
+                QUEUE.0.borrow_mut().insert(player.dolphin_index as usize, EventType::Grow as usize, &pid, 3);
+                QUEUE.0.borrow_mut().insert(player.dolphin_index as usize, EventType::Starve as usize, &pid, 3);
                 player.dolphin_index += 1;
                 //insert event to queue
-                QUEUE.0.borrow_mut().insert(player.dolphin_index as usize, EventType::Grow as usize, &player.pid, 10);
+                zkwasm_rust_sdk::dbg!("=-=-= insert event =-=-= {:?}\n", {pid});
             }
             Command::BuyFood => {
                 unsafe {
@@ -209,8 +214,8 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
                     .ok_or(1u32)?;
                 
                 player.food_number -= 1;
-                if player.dolphins[dolphin_position].satiety <= 90 {
-                    player.dolphins[dolphin_position].satiety += 10;
+                if player.dolphins[dolphin_position].satiety <= 65 {
+                    player.dolphins[dolphin_position].satiety += 35;
                 } else {
                     player.dolphins[dolphin_position].satiety = 100;
                 }
@@ -260,9 +265,11 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
                     require(player.dolphins.len() > 0);
                 }
                 for dolphin in player.dolphins.iter_mut() {
-                    player.coins_balance += dolphin.generated_coins;
-                    dolphin.generated_coins = 0;
-                    dolphin.collected_coins += dolphin.generated_coins;
+                    if dolphin.health > 0 {
+                        player.coins_balance += dolphin.generated_coins;
+                        dolphin.generated_coins = 0;
+                        dolphin.collected_coins += dolphin.generated_coins;
+                    }
                 }
             }
             Command::AddCoinsForTestOnly => {
@@ -289,7 +296,7 @@ pub fn update_state(command: u64, player: &mut PlayerData, dolphin_id: u64, rand
                 player.dolphins.remove(dolphin_position);
             }
         };
-        zkwasm_rust_sdk::dbg!("player state update {:?}, dolphin id {:?}", command, dolphin_id);
+        // zkwasm_rust_sdk::dbg!("player state update {:?}, dolphin id {:?}", command, dolphin_id);
         Ok(())
     })
 }

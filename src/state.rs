@@ -104,7 +104,7 @@ impl Transaction {
             let mut player = DolphinPlayer::get_from_pid(&pid);
             
             if let Some(mut player) = player {
-                update_state(self.command & 0xf, &mut player.data, self.data[0], _rand[0])
+                update_state(self.command & 0xf, &mut player, self.data[0], _rand[0])
                     .map_or(ERROR_INVALID_COMMAND, |_| 0);
                 player.check_and_inc_nonce(self.nonce);
                 player.store();
@@ -120,7 +120,7 @@ impl Transaction {
             }
         };
         let kvpair = unsafe { &mut MERKLE_MAP.merkle.root };
-        zkwasm_rust_sdk::dbg!("root after process {:?}\n", kvpair);
+        // zkwasm_rust_sdk::dbg!("root after process {:?}\n", kvpair);
         b
     }
 }
