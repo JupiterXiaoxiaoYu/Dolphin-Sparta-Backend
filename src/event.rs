@@ -28,7 +28,8 @@ impl StorageData for Event {
     fn to_data(&self, buf: &mut Vec<u64>) {
         buf.push(self.pid[0]);
         buf.push(self.pid[1]);
-        buf.push((self.object_index as u64) << 32 | (self.delta as u64));
+        let encoded = ((self.event_type as u64) << 48) | ((self.object_index as u64) << 32) | (self.delta as u64);
+        buf.push(encoded);
     }
     fn from_data(u64data: &mut IterMut<u64>) -> Self {
         let pid = [
@@ -39,8 +40,8 @@ impl StorageData for Event {
         let f = *u64data.next().unwrap();
         Event {
             pid,
-            event_type: (f >> 32) as usize,
-            object_index: (f >> 32) as usize,
+            event_type: (f >> 48) as usize,
+            object_index: ((f >> 32) & 0xffff) as usize,
             delta: (f & 0xffffffff) as usize,
         }
     }
@@ -64,8 +65,8 @@ pub fn apply_dolphin_event(player: &mut DolphinPlayer, dolphin_position: usize, 
     let object = player.data.dolphins.get_mut(dolphin_position).ok_or(1u32)?;
     if event_type == EventType::Grow as usize {
         zkwasm_rust_sdk::dbg!("=-=-= grow =-=-= {:?}\n", {object.life_stage});
-        if object.life_stage <= 80 {
-            object.life_stage += 20;
+        if object.life_stage < 65 {
+            object.life_stage += 35;
             zkwasm_rust_sdk::dbg!("=-=-= grow after =-=-= {:?}\n", {object.life_stage});
             Ok(EventResult {
                 object_id: object.id as usize,
@@ -88,7 +89,7 @@ pub fn apply_dolphin_event(player: &mut DolphinPlayer, dolphin_position: usize, 
         // zkwasm_rust_sdk::dbg!("=-=-= object_id =-=-= {:?}\n", {object.id});
         // QUEUE.0.borrow_mut().insert(object.id as usize, EventType::GenerateCoin as usize, &player.player_id, 3);
     } else if event_type == EventType::Starve as usize {
-        if(object.satiety<=5){
+        if(object.satiety<=3){
             object.satiety = 0;
             if(object.health<5){
                 object.health = 0;
@@ -96,7 +97,7 @@ pub fn apply_dolphin_event(player: &mut DolphinPlayer, dolphin_position: usize, 
                 object.health -= 5;
             }
         }else{
-            object.satiety -= 5;
+            object.satiety -= 3;
         }
         Ok(EventResult {
             object_id: object.id as usize,
@@ -108,7 +109,7 @@ pub fn apply_dolphin_event(player: &mut DolphinPlayer, dolphin_position: usize, 
     } else if event_type == EventType::GenerateCoin as usize {
         if(object.health>0){
             //max collected coins = 1000
-            if(object.collected_coins+object.level*10>1000*object.level){
+            if(object.generated_coins+object.level*10>1000*object.level){
                 object.generated_coins += 0;
             }else {
                 object.generated_coins += object.level * 10;
@@ -131,6 +132,7 @@ pub fn apply_dolphin_event(player: &mut DolphinPlayer, dolphin_position: usize, 
 impl StorageData for EventQueue {
     fn to_data(&self, buf: &mut Vec<u64>) {
         buf.push(self.counter);
+        buf.push(self.list.len() as u64);
         for e in self.list.iter() {
             e.to_data(buf);
         }
@@ -138,8 +140,9 @@ impl StorageData for EventQueue {
     }
     fn from_data(u64data: &mut IterMut<u64>) -> EventQueue {
         let counter = *u64data.next().unwrap();
+        let len = *u64data.next().unwrap() as usize;
         let mut list = LinkedList::new();
-        for _ in 0..counter {
+        for _ in 0..len {
             list.push_back(Event::from_data(u64data));
         }
         EventQueue {
@@ -159,8 +162,12 @@ impl EventQueue {
     pub fn fetch(&mut self) {
         let kvpair = unsafe { &mut MERKLE_MAP };
         let mut data = kvpair.get(&[0,0,0,0]);
+        // Print the data
+        zkwasm_rust_sdk::dbg!("fetch event queue\n");
         if !data.is_empty() {
-            EventQueue::from_data(&mut data.iter_mut());
+            *self = EventQueue::from_data(&mut data.iter_mut());
+            //打印事件队列
+            self.dump();
         }
     }
     pub fn new() -> Self {
@@ -178,36 +185,44 @@ impl EventQueue {
         zkwasm_rust_sdk::dbg!("=-=-= end =-=-=\n");
     }
     pub fn tick(&mut self) -> u32 {
-        self.dump();
+        // self.dump();
         let mut event_list = Vec::new();
         let counter = self.counter;
         while let Some(head) = self.list.front_mut() {
+            let objindex = head.object_index;
+            let mut player = DolphinPlayer::get_from_pid(&head.pid).unwrap();
+            let dolphin_ids = player.data.dolphins.iter().map(|d| d.id).collect::<Vec<_>>();
             if head.delta == 0 {
-                let objindex = head.object_index;
-                let event_type = head.event_type;
-                zkwasm_rust_sdk::dbg!("=-=-= tick =-=-= pid: {:?} - object_index: {:?} - event_type: {:?}\n", {head.pid}, {head.object_index}, {head.event_type});
-                let mut player = DolphinPlayer::get_from_pid(&head.pid).unwrap();
-                //zkwasm_rust_sdk::dbg!("=-=-= player =-=-= {:?}\n", {player.data.pid});
-                zkwasm_rust_sdk::dbg!("=-=-= dolphin_len =-=-= {:?}\n", {player.data.dolphins.len()});
-                zkwasm_rust_sdk::dbg!("Looking for dolphin with id: {:?}\n", objindex);
-                let dolphin_ids = player.data.dolphins.iter().map(|d| d.id).collect::<Vec<_>>();
-                zkwasm_rust_sdk::dbg!("Available dolphin IDs: {:?}\n", dolphin_ids);
-                let dolphin_position = player.data.dolphins
-                    .iter()
-                    .position(|d| d.id == objindex as u64)
-                    .ok_or_else(|| {
-                        zkwasm_rust_sdk::dbg!("Failed to find dolphin with id: {:?}\n", objindex);
-                        1u32
-                    })
-                    .unwrap() as usize;
-                zkwasm_rust_sdk::dbg!("=-=-= dolphin_position =-=-= {:?}\n", {dolphin_position});
-                let result = apply_dolphin_event(&mut player, dolphin_position, event_type);
-                self.list.pop_front();
-                player.store();
-                if let Ok(r) = result {
-                    event_list.push(r);
-                }else {
-                    break;
+                if dolphin_ids.contains(&(objindex as u64)) {
+
+                    let event_type = head.event_type;
+                    zkwasm_rust_sdk::dbg!("=-=-= tick =-=-= pid: {:?} - object_index: {:?} - event_type: {:?}\n", {head.pid}, {head.object_index}, {head.event_type});
+                    
+                    //zkwasm_rust_sdk::dbg!("=-=-= player =-=-= {:?}\n", {player.data.pid});
+                    zkwasm_rust_sdk::dbg!("=-=-= dolphin_len =-=-= {:?}\n", {player.data.dolphins.len()});
+                    zkwasm_rust_sdk::dbg!("Looking for dolphin with id: {:?}\n", objindex);
+                    
+                    zkwasm_rust_sdk::dbg!("Available dolphin IDs: {:?}\n", dolphin_ids);
+                    let dolphin_position = player.data.dolphins
+                        .iter()
+                        .position(|d| d.id == objindex as u64)
+                        .ok_or_else(|| {
+                            zkwasm_rust_sdk::dbg!("Failed to find dolphin with id: {:?}\n", objindex);
+                            1u32
+                        })
+                        .unwrap() as usize;
+                    zkwasm_rust_sdk::dbg!("=-=-= dolphin_position =-=-= {:?}\n", {dolphin_position});
+                    let result = apply_dolphin_event(&mut player, dolphin_position, event_type);
+                    player.store();
+                    self.list.pop_front();
+                    if let Ok(r) = result {
+                        event_list.push(r);
+                    }else {
+                        break;
+                    }
+                }else{
+                    self.list.pop_front();
+                    continue;
                 }
                 
             } else {

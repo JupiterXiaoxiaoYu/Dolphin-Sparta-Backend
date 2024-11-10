@@ -6,7 +6,6 @@ use zkwasm_rest_abi::Player;
 use crate::event::QUEUE;
 use std::cell::RefCell;
 
-
 pub type DolphinPlayer = Player<PlayerData>;
 
 #[derive(Serialize)]
@@ -25,11 +24,16 @@ impl State {
     }
 
     pub fn store(&self) {
+        //打印事件队列
         QUEUE.0.borrow_mut().store();
+        zkwasm_rust_sdk::dbg!("store event queue\n");
+        QUEUE.0.borrow_mut().dump();
     }
 
     pub fn initialize() {
         QUEUE.0.borrow_mut().fetch();
+        zkwasm_rust_sdk::dbg!("initialize event queue\n");
+        QUEUE.0.borrow_mut().dump();
     }
 
     pub fn new() -> Self {
@@ -42,7 +46,13 @@ impl State {
     }
 
     pub fn preempt() -> bool {
-        return false;
+        let counter = QUEUE.0.borrow().counter;
+        zkwasm_rust_sdk::dbg!("counter: {:?}\n", counter);
+        if counter % 10 == 0 {
+            true
+        } else {
+            false
+        }
     }
 
     pub fn flush_settlement() -> Vec<u8> {
